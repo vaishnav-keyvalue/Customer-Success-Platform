@@ -6,6 +6,8 @@ import axios from 'axios';
 import Redis from 'ioredis';
 import dayjs from 'dayjs';
 import { z } from 'zod';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 /* =========================
    Config & Setup
@@ -55,6 +57,26 @@ const users = new Map<string, User>();
 const openTickets = new Map<string, string[]>(); // userId -> ticketIds
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const shortId = customAlphabet(alphabet, 6);
+
+// Load users from users.json file
+function loadUsersFromFile(): void {
+  try {
+    const usersPath = join(__dirname, '..', 'users.json');
+    const usersData = JSON.parse(readFileSync(usersPath, 'utf8'));
+    
+    if (usersData.users && Array.isArray(usersData.users)) {
+      usersData.users.forEach((user: any) => {
+        if (user.id) {
+          users.set(user.id, user);
+        }
+      });
+      console.log(`Loaded ${users.size} users from users.json`);
+    }
+  } catch (error) {
+    console.error('Failed to load users from users.json:', error);
+    console.log('Falling back to generated users');
+  }
+}
 
 /* =========================
    RNG (seedable)
@@ -120,6 +142,48 @@ function makePhone(region: User['region']) {
 }
 
 function seedUsers(count: number, mix?: Partial<Record<Segment, number>>): User[] {
+  // If we have users loaded from file, use those instead of generating new ones
+  if (users.size > 0) {
+    const userArray = Array.from(users.values());
+    const out: User[] = [];
+    
+    // Use existing users up to the requested count
+    for (let i = 0; i < Math.min(count, userArray.length); i++) {
+      out.push(userArray[i]);
+    }
+    
+    // If we need more users than available, generate the remaining ones
+    if (count > userArray.length) {
+      const remainingCount = count - userArray.length;
+      const weights: Record<Segment, number> = {
+        power: mix?.power ?? 0.2,
+        casual: mix?.casual ?? 0.6,
+        at_risk: mix?.at_risk ?? 0.2
+      };
+      const norm = weights.power + weights.casual + weights.at_risk;
+      weights.power /= norm; weights.casual /= norm; weights.at_risk /= norm;
+
+      for (let i = 0; i < remainingCount; i++) {
+        const id = shortId();
+        const r = R();
+        const segment: Segment = r < weights.power ? 'power' : r < (weights.power+weights.casual) ? 'casual' : 'at_risk';
+        const region = pick(regions);
+        const plan = pick(plans);
+        const user: User = {
+          id, email: makeEmail(id), phone: makePhone(region), region, plan,
+          createdAt: dayjs().subtract(Math.floor(R()*120), 'day').toISOString(),
+          segment,
+          consents: { sms: DEFAULT_SMS_CONSENT, email: DEFAULT_EMAIL_CONSENT }
+        };
+        users.set(id, user);
+        out.push(user);
+      }
+    }
+    
+    return out;
+  }
+
+  // Fallback to original generation logic if no users loaded
   const weights: Record<Segment, number> = {
     power: mix?.power ?? 0.2,
     casual: mix?.casual ?? 0.6,
@@ -150,7 +214,14 @@ function seedUsers(count: number, mix?: Partial<Record<Segment, number>>): User[
 /* ----- Domain event factories ----- */
 
 function eventBase(userId?: string): Omit<DomainEvent,'name'> {
-  return { id: nanoid(), ts: new Date().toISOString(), userId: userId ?? pick([...users.keys()]) };
+  return { id: nanoid(), ts: getRandomDateTime().toISOString(), userId: userId ?? pick([...users.keys()]) };
+}
+
+function getRandomDateTime() {
+  const start = new Date('2024-01-01T00:00:00Z');
+  const end = new Date(); // current date and time
+  const randomTimestamp = start.getTime() + Math.random() * (end.getTime() - start.getTime());
+  return new Date(randomTimestamp);
 }
 
 function makeProductEvent(userId?: string): DomainEvent {
@@ -361,5 +432,11 @@ app.post('/backfill', async (req,res)=>{
 
 /* Start */
 app.listen(PORT, ()=> {
-  console.log(`[mockgen] up on :${PORT} | sink=${SINK_TYPE}`);
+  console.log(`MockGen running on port ${PORT}`);
+  console.log(`Sink: ${SINK_TYPE}`);
+  if (SINK_TYPE === 'http') console.log(`HTTP Sink: ${HTTP_SINK_URL}`);
+  if (SINK_TYPE === 'redis') console.log(`Redis Sink: ${REDIS_URL} -> ${REDIS_STREAM_KEY}`);
+  
+  // Load users from file on startup
+  loadUsersFromFile();
 });

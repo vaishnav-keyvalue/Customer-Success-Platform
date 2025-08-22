@@ -20,7 +20,7 @@ export class CustomerService {
         tenant: { id: tenantId } 
       },
       relations: ['customer'],
-      order: { createdAt: 'DESC' },
+      order: { ts: 'DESC' },
     });
   }
 

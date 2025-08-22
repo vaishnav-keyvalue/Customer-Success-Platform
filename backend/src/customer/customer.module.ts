@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomerController } from './customer.controller';
 import { CustomerService } from './customer.service';
+import { FeatureService } from './feature/feature.service';
 import { Customer } from './customer.entity';
 import { Event } from '../event/event.entity';
 import { TenantModule } from '../tenant/tenant.module';
@@ -14,7 +15,7 @@ import { JwtConfigModule } from 'src/config/jwt.module';
     JwtConfigModule,
   ],
   controllers: [CustomerController],
-  providers: [CustomerService],
-  exports: [TypeOrmModule, CustomerService],
+  providers: [CustomerService, FeatureService],
+  exports: [TypeOrmModule, CustomerService, FeatureService],
 })
 export class CustomerModule {}

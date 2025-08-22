@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Event } from './event.entity';
+import { Event, EventProps } from './event.entity';
 import { Customer } from '../customer/customer.entity';
 import { Tenant } from '../tenant/tenant.entity';
 
 export interface CreateEventDto {
+  id: string;
+  ts: Date | string;
+  userId: string;
   name: string;
-  data: Record<string, any>;
-  customerEmail: string;
-  customerName?: string;
-  customerPhone?: string;
+  props: EventProps;
 }
 
 @Injectable()
@@ -22,32 +22,38 @@ export class EventService {
     private readonly customerRepository: Repository<Customer>,
   ) {}
 
-  async createEvent(createEventDto: CreateEventDto, tenant: Tenant): Promise<Event> {
-    // Find or create customer
+  async createEvent(createEventDto: CreateEventDto): Promise<Event> {
+    // Find or create customer based on userId
     let customer = await this.customerRepository.findOne({
       where: {
-        email: createEventDto.customerEmail,
-        tenant: { id: tenant.id },
+        userId: createEventDto.userId,
+        tenantId: 'e0028c9a-8c0b-48a9-889a-9420c0e62662',
       },
     });
 
     if (!customer) {
       // Create new customer if not exists
       customer = this.customerRepository.create({
-        name: createEventDto.customerName || createEventDto.customerEmail.split('@')[0],
-        email: createEventDto.customerEmail,
-        phone: createEventDto.customerPhone || '',
-        tenant,
+        userId: createEventDto.userId,
+        tenantId: 'e0028c9a-8c0b-48a9-889a-9420c0e62662',
+        // All other fields are optional and will be null
       });
       await this.customerRepository.save(customer);
     }
 
+    // Convert ts to Date if it's a string
+    const timestamp = typeof createEventDto.ts === 'string' 
+      ? new Date(createEventDto.ts) 
+      : createEventDto.ts;
+
     // Create the event
     const event = this.eventRepository.create({
+      id: createEventDto.id,
+      ts: timestamp,
+      userId: createEventDto.userId,
       name: createEventDto.name,
-      data: createEventDto.data,
-      customer,
-      tenant,
+      props: createEventDto.props,
+      tenantId: 'e0028c9a-8c0b-48a9-889a-9420c0e62662',
     });
 
     return await this.eventRepository.save(event);
@@ -55,16 +61,14 @@ export class EventService {
 
   async getEventsByTenant(tenantId: string): Promise<Event[]> {
     return await this.eventRepository.find({
-      where: { tenant: { id: tenantId } },
-      relations: ['customer'],
-      order: { createdAt: 'DESC' },
+      where: { tenantId },
+      order: { ts: 'DESC' },
     });
   }
 
   async getEventById(id: string, tenantId: string): Promise<Event> {
     const event = await this.eventRepository.findOne({
-      where: { id, tenant: { id: tenantId } },
-      relations: ['customer'],
+      where: { id, tenantId },
     });
 
     if (!event) {
@@ -74,25 +78,53 @@ export class EventService {
     return event;
   }
 
-  async getEventsByCustomer(customerId: string, tenantId: string): Promise<Event[]> {
+  async getEventsByUserId(userId: string, tenantId: string): Promise<Event[]> {
     return await this.eventRepository.find({
       where: { 
-        customer: { id: customerId },
-        tenant: { id: tenantId } 
+        userId,
+        tenantId 
       },
-      relations: ['customer'],
-      order: { createdAt: 'DESC' },
+      order: { ts: 'DESC' },
     });
   }
 
-  async getEventsByCustomerEmail(customerEmail: string, tenantId: string): Promise<Event[]> {
+  async getEventsByName(name: string, tenantId: string): Promise<Event[]> {
     return await this.eventRepository.find({
       where: { 
-        customer: { email: customerEmail },
-        tenant: { id: tenantId } 
+        name,
+        tenantId 
       },
-      relations: ['customer'],
-      order: { createdAt: 'DESC' },
+      order: { ts: 'DESC' },
+    });
+  }
+
+  async getEventsBySentiment(sentiment: 'positive' | 'negative' | 'neutral', tenantId: string): Promise<Event[]> {
+    return await this.eventRepository.find({
+      where: { 
+        props: { sentiment },
+        tenantId 
+      },
+      order: { ts: 'DESC' },
+    });
+  }
+
+  async getEventsByUrgency(urgency: 'high' | 'low', tenantId: string): Promise<Event[]> {
+    return await this.eventRepository.find({
+      where: { 
+        props: { urgency },
+        tenantId 
+      },
+      order: { ts: 'DESC' },
+    });
+  }
+
+  async getEventsByTicketId(ticketId: string, tenantId: string): Promise<Event[]> {
+    return await this.eventRepository.find({
+      where: { 
+        props: { ticketId },
+        tenantId 
+      },
+      order: { ts: 'DESC' },
     });
   }
 }

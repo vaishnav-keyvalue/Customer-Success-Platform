@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { EventService } from './event.service';
 import type { CreateEventDto } from './event.service';
 import { TenantAuthGuard } from '../tenant/auth/tenant-auth.guard';
@@ -6,7 +6,7 @@ import { CurrentTenant, CurrentUser } from '../tenant/auth/tenant-auth.decorator
 import type { Tenant } from '../tenant/tenant.entity';
 
 @Controller('events')
-@UseGuards(TenantAuthGuard)
+// @UseGuards(TenantAuthGuard)
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
@@ -14,10 +14,10 @@ export class EventController {
   @HttpCode(HttpStatus.CREATED)
   async createEvent(
     @Body() createEventDto: CreateEventDto,
-    @CurrentTenant() tenant: Tenant,
-    @CurrentUser() user: any,
+    // @CurrentTenant() tenant: Tenant,
+    // @CurrentUser() user: any,
   ) {
-    const event = await this.eventService.createEvent(createEventDto, tenant);
+    const event = await this.eventService.createEvent(createEventDto);
     return {
       success: true,
       data: event,
@@ -44,25 +44,64 @@ export class EventController {
     };
   }
 
-  @Get('customer/:customerId')
-  async getUserEvents(@Param('customerId') customerId: string, @CurrentTenant() tenant: Tenant) {
-    const events = await this.eventService.getEventsByCustomer(customerId, tenant.id);
+  @Get('user/:userId')
+  async getUserEvents(@Param('userId') userId: string, @CurrentTenant() tenant: Tenant) {
+    const events = await this.eventService.getEventsByUserId(userId, tenant.id);
     return {
       success: true,
       data: events,
       count: events.length,
-      customerId,
+      userId,
     };
   }
 
-  @Get('customer/email/:email')
-  async getUserEventsByEmail(@Param('email') email: string, @CurrentTenant() tenant: Tenant) {
-    const events = await this.eventService.getEventsByCustomerEmail(email, tenant.id);
+  @Get('name/:name')
+  async getEventsByName(@Param('name') name: string, @CurrentTenant() tenant: Tenant) {
+    const events = await this.eventService.getEventsByName(name, tenant.id);
     return {
       success: true,
       data: events,
       count: events.length,
-      customerEmail: email,
+      name,
+    };
+  }
+
+  @Get('sentiment/:sentiment')
+  async getEventsBySentiment(
+    @Param('sentiment') sentiment: 'positive' | 'negative' | 'neutral',
+    @CurrentTenant() tenant: Tenant
+  ) {
+    const events = await this.eventService.getEventsBySentiment(sentiment, tenant.id);
+    return {
+      success: true,
+      data: events,
+      count: events.length,
+      sentiment,
+    };
+  }
+
+  @Get('urgency/:urgency')
+  async getEventsByUrgency(
+    @Param('urgency') urgency: 'high' | 'low',
+    @CurrentTenant() tenant: Tenant
+  ) {
+    const events = await this.eventService.getEventsByUrgency(urgency, tenant.id);
+    return {
+      success: true,
+      data: events,
+      count: events.length,
+      urgency,
+    };
+  }
+
+  @Get('ticket/:ticketId')
+  async getEventsByTicketId(@Param('ticketId') ticketId: string, @CurrentTenant() tenant: Tenant) {
+    const events = await this.eventService.getEventsByTicketId(ticketId, tenant.id);
+    return {
+      success: true,
+      data: events,
+      count: events.length,
+      ticketId,
     };
   }
 }
