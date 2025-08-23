@@ -9,8 +9,6 @@ export class UpdateEventsTable1755794626391 implements MigrationInterface {
         
         // Drop existing columns
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "customerId"`);
-        await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "createdAt"`);
-        await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "updatedAt"`);
         
         // Change id column from uuid to varchar
         await queryRunner.query(`ALTER TABLE "events" DROP CONSTRAINT "PK_40731c7151fe4be3116e45ddf73"`);
