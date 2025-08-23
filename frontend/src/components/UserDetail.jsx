@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeftIcon, 
@@ -11,54 +11,48 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline'
 
-// Mock user data generator
-const generateMockUserData = (userId) => {
-  const userNames = [
-    'John Smith', 'Sarah Johnson', 'Michael Brown', 'Emily Davis', 'David Wilson',
-    'Lisa Anderson', 'James Taylor', 'Jennifer Martinez', 'Robert Garcia', 'Amanda Rodriguez'
-  ]
-  
-  const userData = {
-    id: userId,
-    name: userNames[userId % userNames.length],
-    email: `user${userId}@example.com`,
-    phone: `+1 (555) ${String(userId).padStart(3, '0')}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-    joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-    status: ['Active', 'Inactive', 'Suspended'][Math.floor(Math.random() * 3)],
-    totalNotifications: Math.floor(Math.random() * 500) + 50,
-    successfulNotifications: Math.floor(Math.random() * 400) + 30,
-    failedNotifications: Math.floor(Math.random() * 100) + 5,
-    lastActivity: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+// API base URL - adjust this based on your backend configuration
+const API_BASE_URL = 'http://localhost:40234/customers'
+
+// Fetch user details from backend
+const fetchUserDetails = async (userId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/details/public/${userId}`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch user details')
+    }
+    
+    return result.data
+  } catch (error) {
+    console.error('Error fetching user details:', error)
+    throw error
   }
-  
-  return userData
 }
 
-// Mock recent notifications for this user
-const generateMockUserNotifications = (userId, count = 10) => {
-  const platforms = ['Mobile', 'WhatsApp', 'Email', 'SMS']
-  const outcomes = ['Success', 'Failed', 'None']
-  const notificationTypes = [
-    'Send the payment failed alert and complete the transaction',
-    'Account verification reminder',
-    'Password reset confirmation',
-    'Welcome message for new user',
-    'Subscription renewal notification',
-    'Security alert for suspicious activity',
-    'Payment confirmation receipt',
-    'Account suspension warning',
-    'Feature update announcement',
-    'Maintenance schedule notification'
-  ]
-  
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${userId}-${index + 1}`,
-    notificationName: notificationTypes[Math.floor(Math.random() * notificationTypes.length)],
-    platform: platforms[Math.floor(Math.random() * platforms.length)],
-    outcome: outcomes[Math.floor(Math.random() * outcomes.length)],
-    timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    details: `Detailed information about this notification for user ${userId}. This includes additional context and metadata about the notification delivery and response.`
-  }))
+// Fetch user notifications from backend
+const fetchUserNotifications = async (userId) => {
+  try {
+    const response = await fetch(`http://localhost:40234/notifications/public/user/${userId}`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch user notifications')
+    }
+    
+    return result.data || []
+  } catch (error) {
+    console.error('Error fetching user notifications:', error)
+    // Fallback to empty array if notifications endpoint doesn't exist
+    return []
+  }
 }
 
 // Status badge component
@@ -119,25 +113,40 @@ function UserDetail() {
   const [userData, setUserData] = useState(null)
   const [userNotifications, setUserNotifications] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    // Simulate API call
-    const loadUserData = async () => {
-      setLoading(true)
+  const loadUserData = useCallback(async () => {
+    setLoading(true)
+    
+    try {
+      setError(null)
+      const [userDetails, userNotifications] = await Promise.all([
+        fetchUserDetails(id),
+        fetchUserNotifications(id)
+      ])
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      const mockUserData = generateMockUserData(parseInt(id))
-      const mockNotifications = generateMockUserNotifications(parseInt(id), 15)
-      
-      setUserData(mockUserData)
-      setUserNotifications(mockNotifications)
+      setUserData(userDetails)
+      setUserNotifications(userNotifications || [])
+    } catch (error) {
+      console.error('Error loading user data:', error)
+      setError(error.message)
+      // Set empty data on error
+      setUserData(null)
+      setUserNotifications([])
+    } finally {
       setLoading(false)
     }
-
-    loadUserData()
   }, [id])
+
+  const retryLoading = () => {
+    setError(null)
+    setLoading(true)
+    loadUserData()
+  }
+
+  useEffect(() => {
+    loadUserData()
+  }, [id, loadUserData])
 
   if (loading) {
     return (
@@ -145,6 +154,39 @@ function UserDetail() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading user details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 text-red-400">
+            <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading user data</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {error}
+          </p>
+          <div className="mt-4 space-x-3">
+            <button
+              onClick={retryLoading}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Retrying...' : 'Retry'}
+            </button>
+            <button
+              onClick={() => navigate('/notification-list')}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Back to Notifications
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -172,7 +214,9 @@ function UserDetail() {
     )
   }
 
-  const successRate = ((userData.successfulNotifications / userData.totalNotifications) * 100).toFixed(1)
+  const successRate = userData.totalNotifications > 0 
+    ? ((userData.successfulNotifications / userData.totalNotifications) * 100).toFixed(1)
+    : '0.0'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -208,25 +252,26 @@ function UserDetail() {
               <div className="flex items-center space-x-4 mt-2">
                 <div className="flex items-center text-sm text-gray-500">
                   <EnvelopeIcon className="h-4 w-4 mr-1" />
-                  {userData.email}
+                  {userData.email || 'No email'}
                 </div>
                 <div className="flex items-center text-sm text-gray-500">
                   <PhoneIcon className="h-4 w-4 mr-1" />
-                  {userData.phone}
+                  {userData.phone || 'No phone'}
                 </div>
                 <div className="flex items-center text-sm text-gray-500">
                   <CalendarIcon className="h-4 w-4 mr-1" />
-                  Joined {new Date(userData.joinDate).toLocaleDateString()}
+                  Joined {userData.joinDate ? new Date(userData.joinDate).toLocaleDateString() : 'Unknown'}
                 </div>
               </div>
             </div>
             <div className="text-right">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                userData.status === 'Active' ? 'bg-green-100 text-green-800' :
-                userData.status === 'Inactive' ? 'bg-yellow-100 text-yellow-800' :
+                userData.status === 'casual' ? 'bg-green-100 text-green-800' :
+                userData.status === 'power' ? 'bg-green-400 text-green-800' :
+                userData.status === 'at_risk' ? 'bg-yellow-100 text-yellow-800' :
                 'bg-red-100 text-red-800'
               }`}>
-                {userData.status}
+                {userData.status.toUpperCase()}
               </span>
             </div>
           </div>
@@ -296,47 +341,61 @@ function UserDetail() {
           </div>
           
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Notification
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Platform
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Outcome
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {userNotifications.map((notification) => (
-                  <tr key={notification.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {notification.notificationName}
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {notification.details}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <PlatformBadge platform={notification.platform} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={notification.outcome} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(notification.timestamp).toLocaleDateString()}
-                    </td>
+            {userNotifications.length > 0 ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Notification
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Platform
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Outcome
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {userNotifications.map((notification) => (
+                    <tr key={notification.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {notification.notificationName}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          User: {notification.userName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <PlatformBadge platform={notification.platform} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={notification.outcome} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(notification.timestamp).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-6 py-12 text-center">
+                <div className="mx-auto h-12 w-12 text-gray-400">
+                  <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                </div>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No notifications</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  This user hasn't received any notifications yet.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </main>

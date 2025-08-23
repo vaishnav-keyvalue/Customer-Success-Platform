@@ -5,12 +5,13 @@ import { CustomerService } from './customer.service';
 import { FeatureService } from './feature/feature.service';
 import { Customer } from './customer.entity';
 import { Event } from '../event/event.entity';
+import { Notification } from '../notification/notification.entity';
 import { TenantModule } from '../tenant/tenant.module';
 import { JwtConfigModule } from 'src/config/jwt.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer, Event]),
+    TypeOrmModule.forFeature([Customer, Event, Notification]),
     TenantModule,
     JwtConfigModule,
   ],

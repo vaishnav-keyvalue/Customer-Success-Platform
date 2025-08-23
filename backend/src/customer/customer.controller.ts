@@ -256,4 +256,90 @@ export class CustomerController {
       };
     }
   }
+
+  @Get('details/:userId')
+  async getCustomerDetails(@Param('userId') userId: string) {
+    const customerDetails = await this.customerService.getCustomerDetails(userId);
+    
+    if (!customerDetails) {
+      return {
+        success: false,
+        message: 'Customer not found',
+      };
+    }
+
+    return {
+      success: true,
+      data: customerDetails,
+    };
+  }
+
+  @UseGuards(TenantAuthGuard)
+  @Get('details')
+  async getAllCustomerDetails(@CurrentTenant() tenant: Tenant) {
+    const customerDetails = await this.customerService.getAllCustomerDetails(tenant.id);
+    
+    return {
+      success: true,
+      data: customerDetails,
+      count: customerDetails.length,
+    };
+  }
+
+  // Public endpoint for customer details - no authentication required
+  @Get('details/public/:userId')
+  async getPublicCustomerDetails(
+    @Param('userId') userId: string,
+  ) {
+    try {
+      const customerDetails = await this.customerService.getCustomerDetails(userId);
+      
+      if (!customerDetails) {
+        return {
+          success: false,
+          message: 'Customer not found',
+        };
+      }
+
+      return {
+        success: true,
+        data: customerDetails,
+        userId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error retrieving customer details',
+        error: error.message,
+      };
+    }
+  }
+
+  // Public endpoint for all customer details - no authentication required
+  @Get('details/public')
+  async getPublicAllCustomerDetails(@Query('tenantId') tenantId: string) {
+    try {
+      if (!tenantId) {
+        return {
+          success: false,
+          message: 'tenantId is required',
+        };
+      }
+
+      const customerDetails = await this.customerService.getAllCustomerDetails(tenantId);
+      
+      return {
+        success: true,
+        data: customerDetails,
+        count: customerDetails.length,
+        tenantId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error retrieving customer details',
+        error: error.message,
+      };
+    }
+  }
 }

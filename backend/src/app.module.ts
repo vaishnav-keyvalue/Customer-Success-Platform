@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { TenantModule } from './tenant/tenant.module';
 import { EventModule } from './event/event.module';
 import { CustomerModule } from './customer/customer.module';
+import { NotificationModule } from './notification/notification.module';
 import { JwtConfigModule } from './config/jwt.module';
 import { ConfigModule } from './config/config.module';
 import { JwtService } from '@nestjs/jwt';
@@ -17,6 +18,7 @@ import { JwtService } from '@nestjs/jwt';
     TenantModule,
     EventModule,
     CustomerModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

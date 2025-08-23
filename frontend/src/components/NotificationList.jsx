@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
@@ -10,40 +11,10 @@ import {
   ArrowDownIcon
 } from '@heroicons/react/24/outline'
 
-// Mock data generator
-const generateMockNotifications = (count = 1000) => {
-  const platforms = ['Mobile', 'WhatsApp', 'Email', 'SMS']
-  const outcomes = ['Success', 'Failed', 'None']
-  const notificationTypes = [
-    'Send the payment failed alert and complete the transaction',
-    'Account verification reminder',
-    'Password reset confirmation',
-    'Welcome message for new user',
-    'Subscription renewal notification',
-    'Security alert for suspicious activity',
-    'Payment confirmation receipt',
-    'Account suspension warning',
-    'Feature update announcement',
-    'Maintenance schedule notification'
-  ]
-  
-  const names = [
-    'John Smith', 'Sarah Johnson', 'Michael Brown', 'Emily Davis', 'David Wilson',
-    'Lisa Anderson', 'James Taylor', 'Jennifer Martinez', 'Robert Garcia', 'Amanda Rodriguez',
-    'Christopher Lee', 'Jessica White', 'Daniel Thompson', 'Ashley Clark', 'Matthew Lewis',
-    'Nicole Hall', 'Joshua Allen', 'Stephanie Young', 'Andrew King', 'Rebecca Wright'
-  ]
+// API configuration
+const API_BASE_URL = 'http://localhost:40234'
 
-  return Array.from({ length: count }, (_, index) => ({
-    id: index + 1,
-    userName: names[Math.floor(Math.random() * names.length)],
-    notificationName: notificationTypes[Math.floor(Math.random() * notificationTypes.length)],
-    platform: platforms[Math.floor(Math.random() * platforms.length)],
-    outcome: outcomes[Math.floor(Math.random() * outcomes.length)],
-    timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    userId: Math.floor(Math.random() * 1000) + 1
-  }))
-}
+
 
 // Status badge component
 const StatusBadge = ({ status }) => {
@@ -99,6 +70,7 @@ function NotificationList() {
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
   const [searchTerm, setSearchTerm] = useState('')
@@ -106,51 +78,52 @@ function NotificationList() {
   const [outcomeFilter, setOutcomeFilter] = useState('All')
   const [sortConfig, setSortConfig] = useState({ key: 'timestamp', direction: 'desc' })
   const [showFilters, setShowFilters] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
 
-  // Generate mock data on component mount
-  useEffect(() => {
-    const mockData = generateMockNotifications(1000)
-    setNotifications(mockData)
-    setLoading(false)
-  }, [])
-
-  // Filter and sort data
-  const processedData = useMemo(() => {
-    let filtered = notifications.filter(notification => {
-      const matchesSearch = searchTerm === '' || 
-        notification.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        notification.notificationName.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true)
+      setError(null)
       
-      const matchesPlatform = platformFilter === 'All' || notification.platform === platformFilter
-      const matchesOutcome = outcomeFilter === 'All' || notification.outcome === outcomeFilter
-      
-      return matchesSearch && matchesPlatform && matchesOutcome
-    })
-
-    // Sort data
-    filtered.sort((a, b) => {
-      const aValue = a[sortConfig.key]
-      const bValue = b[sortConfig.key]
-      
-      if (sortConfig.key === 'timestamp') {
-        return sortConfig.direction === 'asc' 
-          ? new Date(aValue) - new Date(bValue)
-          : new Date(bValue) - new Date(aValue)
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        platform: platformFilter !== 'All' ? platformFilter : undefined,
+        outcome: outcomeFilter !== 'All' ? outcomeFilter : undefined,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction.toUpperCase()
       }
+
+      const response = await axios.get(`${API_BASE_URL}/notifications/paginated`, { params })
       
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-      return 0
-    })
+      if (response.data && response.data.data) {
+        setNotifications(response.data.data)
+        setTotalCount(response.data.total || 0)
+      } else {
+        setNotifications([])
+        setTotalCount(0)
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err)
+      setError(err.response?.data?.message || 'Failed to fetch notifications')
+      setNotifications([])
+      setTotalCount(0)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    return filtered
-  }, [notifications, searchTerm, platformFilter, outcomeFilter, sortConfig])
+  // Fetch notifications when filters, sorting, or pagination changes
+  useEffect(() => {
+    fetchNotifications()
+  }, [currentPage, searchTerm, platformFilter, outcomeFilter, sortConfig])
 
-  // Pagination
-  const totalPages = Math.ceil(processedData.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentData = processedData.slice(startIndex, endIndex)
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, platformFilter, outcomeFilter])
 
   // Handle sorting
   const handleSort = (key) => {
@@ -183,12 +156,33 @@ function NotificationList() {
       : <ArrowDownIcon className="h-4 w-4 text-blue-600" />
   }
 
-  if (loading) {
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+  if (loading && notifications.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && notifications.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl mb-4">⚠️</div>
+          <p className="text-gray-900 font-semibold mb-2">Error Loading Notifications</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={fetchNotifications}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     )
@@ -309,14 +303,26 @@ function NotificationList() {
         {/* Results Summary */}
         <div className="mb-4 flex justify-between items-center">
           <p className="text-sm text-gray-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, processedData.length)} of {processedData.length} notifications
+            Showing {notifications.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} notifications
           </p>
-          {processedData.length === 0 && (
+          {notifications.length === 0 && !loading && (
             <p className="text-sm text-gray-500">
               No notifications found matching your criteria
             </p>
           )}
         </div>
+
+        {/* Loading overlay for table */}
+        {loading && (
+          <div className="relative">
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600 text-sm">Updating...</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -359,7 +365,7 @@ function NotificationList() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentData.map(notification => (
+              {notifications.map(notification => (
                 <tr key={notification.id} onClick={() => handleRowClick(notification.userId)} className="hover:bg-gray-100 cursor-pointer">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {notification.userName}
@@ -399,14 +405,14 @@ function NotificationList() {
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || loading}
                 className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || loading}
                 className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
@@ -423,7 +429,7 @@ function NotificationList() {
                 <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
+                    disabled={currentPage === 1 || loading}
                     className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronLeftIcon className="h-5 w-5" />
@@ -446,11 +452,12 @@ function NotificationList() {
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
+                        disabled={loading}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                           currentPage === pageNum
                             ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                             : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         {pageNum}
                       </button>
@@ -459,7 +466,7 @@ function NotificationList() {
                   
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === totalPages || loading}
                     className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronRightIcon className="h-5 w-5" />
