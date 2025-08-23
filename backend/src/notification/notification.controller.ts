@@ -1,12 +1,19 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Query, Param, Body } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { Notification } from './notification.entity';
 import { PaginationDto } from './dto/pagination.dto';
 import { PaginatedNotificationResponseDto } from './dto/notification-response.dto';
+import { WorkflowTriggerDto } from './dto/workflow-trigger.dto';
+import { CreateNotificationDto } from './dto/create-notification.dto';
 
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
+
+  @Post()
+  async create(@Body() createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    return this.notificationService.create(createNotificationDto);
+  }
 
   @Get()
   async findAll(): Promise<Notification[]> {

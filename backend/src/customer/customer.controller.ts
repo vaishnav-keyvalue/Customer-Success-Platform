@@ -84,7 +84,7 @@ export class CustomerController {
         };
       }
 
-      const features = await this.featureService.computeUserFeaturesForUser(userId, start, end, tenantId);
+      const features = await this.featureService.computeUserFeaturesForUser(userId, start, tenantId);
       
       if (!features) {
         return {
@@ -231,7 +231,7 @@ export class CustomerController {
         };
       }
 
-      const features = await this.featureService.computeUserFeaturesForUser(userId, start, end, tenant.id);
+      const features = await this.featureService.computeUserFeaturesForUser(userId, start, tenant.id);
       
       if (!features) {
         return {

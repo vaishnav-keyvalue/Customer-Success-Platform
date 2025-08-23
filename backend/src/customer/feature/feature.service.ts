@@ -35,6 +35,7 @@ export class FeatureService {
   async computeUserFeatures(
     startDate: Date,
     tenantId: string,
+    userId?: string,
   ): Promise<UserFeaturesWithLabel[]> {
     // Fetch all events within the date range for the tenant
     const events = await this.eventRepository.find({
@@ -44,6 +45,7 @@ export class FeatureService {
           startDate
         ),
         tenantId,
+        userId,
       },
       order: { ts: 'ASC' },
     });
@@ -170,10 +172,9 @@ export class FeatureService {
   async computeUserFeaturesForUser(
     userId: string,
     startDate: Date,
-    endDate: Date,
     tenantId: string,
   ): Promise<UserFeaturesWithLabel | null> {
-    const features = await this.computeUserFeatures(startDate, tenantId);
+    const features = await this.computeUserFeatures(startDate, tenantId, userId);
     return features.find(f => f.userId === userId) || null;
   }
 }

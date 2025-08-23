@@ -1,16 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import { Notification } from './notification.entity';
 import { PaginationDto } from './dto/pagination.dto';
 import { PaginatedNotificationResponseDto, NotificationResponseDto } from './dto/notification-response.dto';
+import { WorkflowTriggerDto } from './dto/workflow-trigger.dto';
+import { CreateNotificationDto } from './dto/create-notification.dto';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
+    private readonly httpService: HttpService,
   ) {}
+
+  async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create(createNotificationDto);
+    return this.notificationRepository.save(notification);
+  }
 
   async findAll(): Promise<Notification[]> {
     return this.notificationRepository.find({
@@ -110,5 +120,33 @@ export class NotificationService {
       timestamp: notification.timestamp.toISOString(),
       userId: notification.userId,
     }));
+  }
+
+  async triggerWorkflow(workflowData: WorkflowTriggerDto): Promise<any> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          'https://api.trysiren.io/api/v2/workflows/trigger',
+          workflowData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      );
+
+      return {
+        success: true,
+        data: response.data,
+        status: response.status,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        status: error.response?.status || 500,
+      };
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Event, EventProps } from './event.entity';
 import { Customer } from '../customer/customer.entity';
 import { Tenant } from '../tenant/tenant.entity';
@@ -20,6 +21,7 @@ export class EventService {
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createEvent(createEventDto: CreateEventDto): Promise<Event> {
@@ -56,7 +58,17 @@ export class EventService {
       tenantId: 'e0028c9a-8c0b-48a9-889a-9420c0e62662',
     });
 
-    return await this.eventRepository.save(event);
+    // Save the event
+    const savedEvent = await this.eventRepository.save(event);
+    
+    // Emit event after successful save
+    this.eventEmitter.emit('event.created', {
+      event: savedEvent,
+      customer,
+      timestamp: new Date(),
+    });
+
+    return savedEvent;
   }
 
   async getEventsByTenant(tenantId: string): Promise<Event[]> {
