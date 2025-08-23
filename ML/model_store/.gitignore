@@ -1,0 +1,7 @@
+# Ignore all model files - these are large binary files that shouldn't be in git
+*.pkl
+*.meta.json
+*.joblib
+
+# Keep the directory structure
+!.gitignore
