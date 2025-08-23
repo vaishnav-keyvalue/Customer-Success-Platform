@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './components/Login'
-import Dashboard from './components/Dashboard'
+import NotificationList from './components/NotificationList'
+import UserDetail from './components/UserDetail'
 
 function App() {
   return (
@@ -8,7 +9,8 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/notification-list" element={<NotificationList />} />
+          <Route path="/user/:id" element={<UserDetail />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

@@ -16,7 +16,7 @@ function Login() {
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false)
-      navigate('/dashboard')
+      navigate('/notification-list')
     }, 1000)
   }
 
