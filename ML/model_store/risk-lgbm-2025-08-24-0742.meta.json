@@ -1,0 +1,36 @@
+{
+  "version": "risk-lgbm-2025-08-24-0742",
+  "trained_from": "2025-05-25T00:00:00",
+  "trained_to": "2025-08-23T00:00:00",
+  "feature_order": [
+    "activity_7d",
+    "activity_30d",
+    "time_since_last_use_days",
+    "failed_renewals_30d",
+    "tickets_7d",
+    "tickets_30d",
+    "plan_value",
+    "usage_score",
+    "region__IN",
+    "region__SG",
+    "region__US",
+    "region__EU"
+  ],
+  "encoders": {
+    "region_vocab": [
+      "IN",
+      "SG",
+      "US",
+      "EU"
+    ]
+  },
+  "thresholds": {
+    "med": 2.585447760803062e-05,
+    "high": 3.6423515501132056e-05
+  },
+  "metrics": {
+    "auc_roc": 1.0,
+    "auc_pr": 1.0,
+    "brier": 2.6176128360896197e-05
+  }
+}
