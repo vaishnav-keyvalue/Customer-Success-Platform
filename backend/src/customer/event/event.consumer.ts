@@ -1,10 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 import { Event } from '../../event/event.entity';
 import { Customer } from '../customer.entity';
 import { CustomerService } from '../customer.service';
 import { FeatureService } from '../feature/feature.service';
 import { NotificationService } from 'src/notification/notification.service';
+
+// ML Service interfaces
+interface MLScoreRequest {
+  features: {
+    activity_7d?: number;
+    activity_30d?: number;
+    usage_score?: number;
+    region?: string;
+    [key: string]: any;
+  };
+}
+
+interface MLScoreResponse {
+  risk: number;
+  tier: 'low' | 'med' | 'high';
+  reasons: string[];
+  modelVersion: string;
+}
 
 export interface EventCreatedPayload {
   event: Event;
@@ -20,6 +41,8 @@ export class CustomerEventConsumer {
     private readonly customerService: CustomerService,
     private readonly featureService: FeatureService,
     private readonly notificationService: NotificationService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {}
 
   @OnEvent('event.created')
@@ -61,16 +84,68 @@ export class CustomerEventConsumer {
               usage_score: userFeatures.features.usage_score,
               label: userFeatures.label
             });
+
+            this.logger.log(`Proceeding to ML service integration for user ${customerIdFromEvent}`);
           } else {
             this.logger.warn(`Could not compute features for user ${customerIdFromEvent}`);
           }
+
+          // Integrate with ML service to get the tier
+          let customerTier = 'low'; // default tier
+          let mlRiskScore = 0;
+          let mlReasons: string[] = [];
+          
+          try {
+            const mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://localhost:8000');
+            const mlRequest: MLScoreRequest = {
+              features: {
+                activity_7d: userFeatures?.features?.activity_7d || 0,
+                activity_30d: userFeatures?.features?.activity_30d || 0,
+                usage_score: userFeatures?.features?.usage_score || 0,
+              
+                region: customerDetails.region, // default region, can be enhanced to get from customer data
+              }
+            };
+
+            this.logger.log(`Calling ML service at ${mlServiceUrl}/score with features:`, mlRequest.features);
+            
+            const mlResponse = await firstValueFrom(
+              this.httpService.post<MLScoreResponse>(`${mlServiceUrl}/score`, mlRequest)
+            );
+
+            customerTier = mlResponse.data.tier;
+            mlRiskScore = mlResponse.data.risk;
+            mlReasons = mlResponse.data.reasons;
+
+            this.logger.log(`ML service response: tier=${customerTier}, risk=${mlRiskScore}, reasons=${mlReasons.join(', ')}`);
+          } catch (mlError) {
+            this.logger.error(`Error calling ML service: ${mlError.message}`);
+            this.logger.warn('Using default tier "low" due to ML service error');
+          }
+
+          this.logger.log(`Final customer tier for user ${customerIdFromEvent}: ${customerTier} (risk: ${mlRiskScore})`);
+
+
+          if (customerTier !== 'low'
+            && (customerDetails.status === 'casual' ||
+             customerDetails.status === 'power')
+          ) {
 
           const notification = await this.notificationService.create({
             name: payload.event.name,
             platform: 'email',
             outcome: 'In Progress',
             userId: customerIdFromEvent,
+            // Add ML service results to notification metadata if available
+            ...(customerTier !== 'low' && {
+              metadata: {
+                mlTier: customerTier,
+                mlRiskScore: mlRiskScore,
+                mlReasons: mlReasons,
+              }
+            })
           });
+
 
           await this.notificationService.triggerWorkflow({
             worflowName: 'Customer_Retention',
@@ -79,12 +154,16 @@ export class CustomerEventConsumer {
               userName: customerDetails.email,
               tenant: tenantId,
               notificationId: notification.id,
+              mlTier: customerTier,
+              mlRiskScore: mlRiskScore,
+              mlReasons: mlReasons,
             },
             notify: {
               email: customerDetails.email,
               sms: customerDetails.phone,
             },
           });
+        }
         
           // Send notification to the customer
 

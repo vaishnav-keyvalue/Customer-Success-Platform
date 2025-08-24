@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { CustomerController } from './customer.controller';
 import { CustomerService } from './customer.service';
 import { FeatureService } from './feature/feature.service';
@@ -18,6 +19,7 @@ import { HttpModule } from '@nestjs/axios';
     TenantModule,
     JwtConfigModule,
     HttpModule,
+    ConfigModule,
   ],
   controllers: [CustomerController],
   providers: [CustomerService, FeatureService, CustomerEventConsumer, NotificationService],

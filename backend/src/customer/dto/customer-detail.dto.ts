@@ -9,4 +9,5 @@ export class CustomerDetailDto {
   successfulNotifications: number;
   failedNotifications: number;
   lastActivity: string;
+  region: string;
 }

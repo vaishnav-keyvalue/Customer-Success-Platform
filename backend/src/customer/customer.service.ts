@@ -113,6 +113,7 @@ export class CustomerService {
       successfulNotifications,
       failedNotifications,
       lastActivity: latestEvent ? latestEvent.ts.toISOString() : customer.updatedAt.toISOString(),
+      region: customer.region,
     };
   }
 

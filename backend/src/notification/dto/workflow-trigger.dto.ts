@@ -10,6 +10,7 @@ export class WorkflowTriggerDto {
     userName: string;
     tenant: string;
     notificationId: string;
+    [key: string]: any; // Allow additional properties for ML service results
   };
 
   @IsOptional()

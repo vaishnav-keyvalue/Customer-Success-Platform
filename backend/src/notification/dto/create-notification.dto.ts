@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
@@ -16,4 +16,7 @@ export class CreateNotificationDto {
   @IsString()
   @IsNotEmpty()
   userId: string;
+
+  @IsOptional()
+  metadata?: Record<string, any>;
 }

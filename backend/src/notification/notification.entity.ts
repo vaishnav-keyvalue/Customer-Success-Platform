@@ -24,4 +24,7 @@ export class Notification {
 
   @Column({ type: 'varchar', length: 255, nullable: false })
   userId: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any>;
 }
