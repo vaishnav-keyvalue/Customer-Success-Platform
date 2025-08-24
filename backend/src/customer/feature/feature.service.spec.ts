@@ -44,7 +44,8 @@ describe('FeatureService', () => {
 
   describe('computeUserFeatures', () => {
     it('should compute features for all users in a date range', async () => {
-      const startDate = new Date('2024-01-31');
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
       const tenantId = 'test-tenant-id';
 
       const mockCustomers: Partial<Customer>[] = [
@@ -89,7 +90,7 @@ describe('FeatureService', () => {
       mockCustomerRepository.find.mockResolvedValue(mockCustomers);
       mockEventRepository.find.mockResolvedValue(mockEvents);
 
-      const result = await service.computeUserFeatures(startDate, tenantId);
+      const result = await service.computeUserFeatures(startDate, endDate, tenantId);
 
       expect(result).toHaveLength(2);
       expect(result[0].userId).toBe('user1');

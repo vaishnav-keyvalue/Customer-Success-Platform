@@ -34,16 +34,14 @@ export class FeatureService {
 
   async computeUserFeatures(
     startDate: Date,
+    endDate: Date,
     tenantId: string,
     userId?: string,
   ): Promise<UserFeaturesWithLabel[]> {
     // Fetch all events within the date range for the tenant
     const events = await this.eventRepository.find({
       where: {
-        ts: Between(
-          new Date(startDate.getTime() - 30 * 24 * 60 * 60 * 1000),
-          startDate
-        ),
+        ts: Between(startDate, endDate),
         tenantId,
         userId,
       },
@@ -57,7 +55,7 @@ export class FeatureService {
 
     // Group events by userId
     const eventsByUser = new Map<string, Event[]>();
-    events.forEach(event => {
+    events.forEach((event) => {
       if (!eventsByUser.has(event.userId)) {
         eventsByUser.set(event.userId, []);
       }
@@ -69,13 +67,15 @@ export class FeatureService {
 
     for (const customer of customers) {
       const userEvents = eventsByUser.get(customer.userId) || [];
-      
+
       // Calculate date ranges for different periods
       const now = new Date();
-      const sevenDaysAgo = new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(
+        startDate.getTime() - 7 * 24 * 60 * 60 * 1000,
+      );
 
       // Filter events for different periods
-      const events7d = userEvents.filter(event => event.ts >= sevenDaysAgo);
+      const events7d = userEvents.filter((event) => event.ts >= sevenDaysAgo);
 
       // Calculate activity metrics
       const activity_7d = events7d.length;
@@ -83,7 +83,8 @@ export class FeatureService {
 
       // Calculate time since last use
       let time_since_last_use_days = 0;
-      let timeDiff = now.getTime() - startDate.getTime() - 30 * 24 * 60 * 60 * 1000;
+      let timeDiff =
+        now.getTime() - startDate.getTime() - 30 * 24 * 60 * 60 * 1000;
       if (userEvents.length > 0) {
         const lastEvent = userEvents[userEvents.length - 1]; // Events are sorted ASC
         timeDiff = now.getTime() - lastEvent.ts.getTime();
@@ -91,13 +92,19 @@ export class FeatureService {
       time_since_last_use_days = Math.floor(timeDiff / (24 * 60 * 60 * 1000));
 
       // Calculate failed renewals
-      const failed_renewals_30d = userEvents.filter(event => 
-        event.name === 'plan_renewal_failed' || event.name === 'pre_renewal_card_decline'
+      const failed_renewals_30d = userEvents.filter(
+        (event) =>
+          event.name === 'plan_renewal_failed' ||
+          event.name === 'pre_renewal_card_decline',
       ).length;
 
       // Calculate tickets
-      const tickets_7d = events7d.filter(event => event.name === 'ticket_opened').length;
-      const tickets_30d = userEvents.filter(event => event.name === 'ticket_opened').length;
+      const tickets_7d = events7d.filter(
+        (event) => event.name === 'ticket_opened',
+      ).length;
+      const tickets_30d = userEvents.filter(
+        (event) => event.name === 'ticket_opened',
+      ).length;
 
       // Get plan value based on customer plan
       let plan_value = 0;
@@ -166,15 +173,26 @@ export class FeatureService {
     score -= Math.min(features.tickets_30d / 5, 0.1); // Max 0.1 penalty
 
     // Ensure score is between 0 and 1
-    return Math.max(0, Math.min(1, score)) > 0.3 ? 1 : 0;
+    const finalScore = Math.max(0, Math.min(1, score));
+
+    // Use a more balanced threshold (around median expected score)
+    // With base score 0.5, most scores will be in 0.3-0.8 range
+    // Using 0.55 threshold should create better class balance
+    return finalScore > 0.55 ? 1 : 0;
   }
 
   async computeUserFeaturesForUser(
     userId: string,
     startDate: Date,
+    endDate: Date,
     tenantId: string,
   ): Promise<UserFeaturesWithLabel | null> {
-    const features = await this.computeUserFeatures(startDate, tenantId, userId);
-    return features.find(f => f.userId === userId) || null;
+    const features = await this.computeUserFeatures(
+      startDate,
+      endDate,
+      tenantId,
+      userId,
+    );
+    return features.find((f) => f.userId === userId) || null;
   }
 }

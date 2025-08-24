@@ -14,7 +14,7 @@ MODEL_DIR = os.getenv("MODEL_DIR", "./model_store")
 # Define the canonical feature set (must match CS features)
 BASE_FEATURES = [
     "activity_7d","activity_30d","time_since_last_use_days",
-    "failed_renewals_30d","tickets_7d","plan_value","usage_score"
+    "failed_renewals_30d","tickets_7d","tickets_30d","plan_value","usage_score"
 ]
 REGION_VOCAB = ["IN","SG","US","EU"]
 
@@ -48,9 +48,27 @@ def train_model(start_iso: str, end_iso: str):
     df = load_snapshots_from_cs(start_iso, end_iso)
     if df.empty:
         raise RuntimeError("No snapshots returned for training window")
+    
     X, y, groups, feature_order = prepare(df)
+    
+    # Check class distribution
+    unique, counts = np.unique(y, return_counts=True)
+    class_distribution = dict(zip(unique, counts))
+    print(f"📊 Class Distribution: {class_distribution}")
+    
+    if len(unique) < 2:
+        print("⚠️  Warning: Only one class present in labels!")
+        print("   This will prevent proper model training.")
+        print(f"   All labels are: {unique[0]}")
+        # Continue anyway to test the evaluation fix
+    
     train_idx, val_idx = time_split(X, y, groups)
     Xtr, Xva, ytr, yva = X[train_idx], X[val_idx], y[train_idx], y[val_idx]
+    
+    # Check validation split class distribution too
+    unique_val, counts_val = np.unique(yva, return_counts=True)
+    val_distribution = dict(zip(unique_val, counts_val))
+    print(f"📊 Validation Class Distribution: {val_distribution}")
 
     clf = LGBMClassifier(
         n_estimators=600, learning_rate=0.03,
@@ -69,6 +87,8 @@ def train_model(start_iso: str, end_iso: str):
         "version": version,
         "trained_from": start_iso,
         "trained_to": end_iso,
+        "training_samples": len(X),
+        "validation_samples": len(Xva),
         "feature_order": feature_order,
         "encoders": {"region_vocab": REGION_VOCAB},
         "thresholds": thresholds,

@@ -85,22 +85,52 @@ cd ML
 ```
 
 ### 2. Install Dependencies
+
+**Option A: Standard Installation**
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Train Initial Model (requires CS API running)
+**Option B: If matplotlib installation fails (macOS)**
 ```bash
-export CS_EXPORT_URL="http://localhost:4000/ml/export"
-python -m train.training
+# Install system dependencies using Homebrew
+brew install pkg-config freetype
+
+# Install matplotlib separately using pre-built wheel
+pip install --only-binary=matplotlib matplotlib
+
+# Then install remaining dependencies
+pip install -r requirements.txt
 ```
 
-### 4. Start API Server
+**Option C: Alternative approach for macOS**
+```bash
+# Use conda instead of pip for better compatibility
+conda install matplotlib
+pip install -r requirements.txt --no-deps
+```
+
+### 3. Validate Data Connection
+```bash
+python validate_data.py
+```
+
+### 4. Train Initial Model (requires CS API running)
+```bash
+python train_model.py --days=90
+```
+
+### 5. Test Trained Model
+```bash
+python test_model.py --days=30
+```
+
+### 6. Start API Server
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 5. Test Scoring
+### 7. Test Scoring
 ```bash
 curl -X POST localhost:8000/score -H 'content-type: application/json' -d '{
   "userId":"u_demo",
@@ -128,7 +158,8 @@ docker run -p 8000:8000 -v $(pwd)/model_store:/app/model_store cs-ml-service
 Environment variables:
 
 - `MODEL_DIR`: Directory for model storage (default: `./model_store`)
-- `CS_EXPORT_URL`: CS API export endpoint (default: `http://localhost:4000/ml/export`)
+- `CS_FEATURES_URL`: CS API features endpoint (default: `http://localhost:3000/customers/features/public`)
+- `TENANT_ID`: Tenant ID for API requests (default: `e0028c9a-8c4e-4f3b-9d8a-f2e5c7d1b9a4`)
 
 ## Feature Engineering
 
@@ -138,7 +169,7 @@ The service handles these features:
 - `activity_7d`, `activity_30d`: User activity counts
 - `time_since_last_use_days`: Days since last activity
 - `failed_renewals_30d`: Failed payment attempts
-- `tickets_7d`: Support tickets created
+- `tickets_7d`, `tickets_30d`: Support tickets created
 - `plan_value`: Subscription value
 - `usage_score`: Feature usage score (0-1)
 
@@ -172,7 +203,52 @@ Each model includes:
 
 ## Integration with CS Platform
 
-1. **CS API** exports labeled training snapshots via `/ml/export`
-2. **Training module** pulls snapshots, trains models, registers new versions
-3. **Inference service** loads latest model and serves real-time scores
-4. **CS API** calls `/score` with live features for policy decisions
+1. **CS API** provides customer features via `/customers/features/public`
+2. **Training module** pulls feature data, generates labels, trains models
+3. **Testing module** validates model performance on recent data  
+4. **Inference service** loads latest model and serves real-time scores
+5. **CS API** calls `/score` with live features for policy decisions
+
+## New Training & Testing Scripts
+
+- `validate_data.py` - Validates data connection and quality
+- `train_model.py` - Complete training pipeline with feature extraction
+- `test_model.py` - Comprehensive model testing and validation
+- `train/testing.py` - Testing utilities and performance analysis
+
+## Troubleshooting
+
+### matplotlib Installation Issues on macOS
+
+If you encounter compilation errors when installing matplotlib (like "Command '['make']' returned non-zero exit status 2"):
+
+1. **Install system dependencies**:
+   ```bash
+   # Using Homebrew
+   brew install pkg-config freetype
+
+   # Or using MacPorts
+   sudo port install pkgconfig freetype
+   ```
+
+2. **Force pre-built wheel installation**:
+   ```bash
+   pip install --only-binary=matplotlib matplotlib
+   ```
+
+3. **Alternative: Use conda**:
+   ```bash
+   conda install matplotlib
+   ```
+
+4. **If using Apple Silicon (M1/M2)**:
+   ```bash
+   # Ensure you're using the correct architecture
+   arch -x86_64 pip install matplotlib
+   ```
+
+### Common Issues
+
+- **ImportError**: Make sure all dependencies are installed and your Python environment is activated
+- **Database Connection**: Verify your database credentials in the environment configuration  
+- **Model Training**: Ensure the CS API is running and accessible when training models

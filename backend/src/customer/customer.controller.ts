@@ -4,6 +4,7 @@ import { FeatureService } from './feature/feature.service';
 import { TenantAuthGuard } from '../tenant/auth/tenant-auth.guard';
 import { CurrentTenant } from '../tenant/auth/tenant-auth.decorator';
 import type { Tenant } from '../tenant/tenant.entity';
+import { EntityMetadataBuilder } from 'typeorm/metadata-builder/EntityMetadataBuilder.js';
 
 @Controller('customers')
 export class CustomerController {
@@ -29,16 +30,21 @@ export class CustomerController {
 
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeatures(start, tenantId);
-      
+      const features = await this.featureService.computeUserFeatures(
+        start,
+        end,
+        tenantId,
+      );
+
       return {
         success: true,
         data: features,
@@ -76,15 +82,16 @@ export class CustomerController {
 
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeaturesForUser(userId, start, tenantId);
+      const features = await this.featureService.computeUserFeaturesForUser(userId, start, end, tenantId);
       
       if (!features) {
         return {
@@ -115,9 +122,15 @@ export class CustomerController {
   // Protected endpoints below
   @UseGuards(TenantAuthGuard)
   @Get(':customerId')
-  async getCustomer(@Param('customerId') customerId: string, @CurrentTenant() tenant: Tenant) {
-    const customer = await this.customerService.getCustomerById(customerId, tenant.id);
-    
+  async getCustomer(
+    @Param('customerId') customerId: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const customer = await this.customerService.getCustomerById(
+      customerId,
+      tenant.id,
+    );
+
     if (!customer) {
       return {
         success: false,
@@ -133,9 +146,15 @@ export class CustomerController {
 
   @UseGuards(TenantAuthGuard)
   @Get('search/email')
-  async getCustomerByEmail(@Query('email') email: string, @CurrentTenant() tenant: Tenant) {
-    const customer = await this.customerService.getCustomerByEmail(email, tenant.id);
-    
+  async getCustomerByEmail(
+    @Query('email') email: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const customer = await this.customerService.getCustomerByEmail(
+      email,
+      tenant.id,
+    );
+
     if (!customer) {
       return {
         success: false,
@@ -152,8 +171,10 @@ export class CustomerController {
   @UseGuards(TenantAuthGuard)
   @Get()
   async getAllCustomers(@CurrentTenant() tenant: Tenant) {
-    const customers = await this.customerService.getAllCustomersByTenant(tenant.id);
-    
+    const customers = await this.customerService.getAllCustomersByTenant(
+      tenant.id,
+    );
+
     return {
       success: true,
       data: customers,
@@ -163,9 +184,15 @@ export class CustomerController {
 
   @UseGuards(TenantAuthGuard)
   @Get(':customerId/events')
-  async getCustomerEvents(@Param('customerId') customerId: string, @CurrentTenant() tenant: Tenant) {
-    const events = await this.customerService.getCustomerEvents(customerId, tenant.id);
-    
+  async getCustomerEvents(
+    @Param('customerId') customerId: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const events = await this.customerService.getCustomerEvents(
+      customerId,
+      tenant.id,
+    );
+
     return {
       success: true,
       data: events,
@@ -184,16 +211,21 @@ export class CustomerController {
     try {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeatures(start, tenant.id);
-      
+      const features = await this.featureService.computeUserFeatures(
+        start,
+        end,
+        tenant.id,
+      );
+
       return {
         success: true,
         data: features,
@@ -223,15 +255,16 @@ export class CustomerController {
     try {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeaturesForUser(userId, start, tenant.id);
+      const features = await this.featureService.computeUserFeaturesForUser(userId, start, end, tenant.id);
       
       if (!features) {
         return {
