@@ -29,16 +29,21 @@ export class CustomerController {
 
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeatures(start, tenantId);
-      
+      const features = await this.featureService.computeUserFeatures(
+        start,
+        end,
+        tenantId,
+      );
+
       return {
         success: true,
         data: features,
@@ -76,11 +81,12 @@ export class CustomerController {
 
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
@@ -115,9 +121,15 @@ export class CustomerController {
   // Protected endpoints below
   @UseGuards(TenantAuthGuard)
   @Get(':customerId')
-  async getCustomer(@Param('customerId') customerId: string, @CurrentTenant() tenant: Tenant) {
-    const customer = await this.customerService.getCustomerById(customerId, tenant.id);
-    
+  async getCustomer(
+    @Param('customerId') customerId: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const customer = await this.customerService.getCustomerById(
+      customerId,
+      tenant.id,
+    );
+
     if (!customer) {
       return {
         success: false,
@@ -133,9 +145,15 @@ export class CustomerController {
 
   @UseGuards(TenantAuthGuard)
   @Get('search/email')
-  async getCustomerByEmail(@Query('email') email: string, @CurrentTenant() tenant: Tenant) {
-    const customer = await this.customerService.getCustomerByEmail(email, tenant.id);
-    
+  async getCustomerByEmail(
+    @Query('email') email: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const customer = await this.customerService.getCustomerByEmail(
+      email,
+      tenant.id,
+    );
+
     if (!customer) {
       return {
         success: false,
@@ -152,8 +170,10 @@ export class CustomerController {
   @UseGuards(TenantAuthGuard)
   @Get()
   async getAllCustomers(@CurrentTenant() tenant: Tenant) {
-    const customers = await this.customerService.getAllCustomersByTenant(tenant.id);
-    
+    const customers = await this.customerService.getAllCustomersByTenant(
+      tenant.id,
+    );
+
     return {
       success: true,
       data: customers,
@@ -163,9 +183,15 @@ export class CustomerController {
 
   @UseGuards(TenantAuthGuard)
   @Get(':customerId/events')
-  async getCustomerEvents(@Param('customerId') customerId: string, @CurrentTenant() tenant: Tenant) {
-    const events = await this.customerService.getCustomerEvents(customerId, tenant.id);
-    
+  async getCustomerEvents(
+    @Param('customerId') customerId: string,
+    @CurrentTenant() tenant: Tenant,
+  ) {
+    const events = await this.customerService.getCustomerEvents(
+      customerId,
+      tenant.id,
+    );
+
     return {
       success: true,
       data: events,
@@ -184,16 +210,21 @@ export class CustomerController {
     try {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
-      const features = await this.featureService.computeUserFeatures(start, tenant.id);
-      
+      const features = await this.featureService.computeUserFeatures(
+        start,
+        end,
+        tenant.id,
+      );
+
       return {
         success: true,
         data: features,
@@ -223,11 +254,12 @@ export class CustomerController {
     try {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return {
           success: false,
-          message: 'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
+          message:
+            'Invalid date format. Please use ISO date strings (YYYY-MM-DD)',
         };
       }
 
@@ -252,6 +284,95 @@ export class CustomerController {
       return {
         success: false,
         message: 'Error computing user features',
+        error: error.message,
+      };
+    }
+  }
+
+  @Get('details/:userId')
+  async getCustomerDetails(@Param('userId') userId: string) {
+    const customerDetails =
+      await this.customerService.getCustomerDetails(userId);
+
+    if (!customerDetails) {
+      return {
+        success: false,
+        message: 'Customer not found',
+      };
+    }
+
+    return {
+      success: true,
+      data: customerDetails,
+    };
+  }
+
+  @UseGuards(TenantAuthGuard)
+  @Get('details')
+  async getAllCustomerDetails(@CurrentTenant() tenant: Tenant) {
+    const customerDetails = await this.customerService.getAllCustomerDetails(
+      tenant.id,
+    );
+
+    return {
+      success: true,
+      data: customerDetails,
+      count: customerDetails.length,
+    };
+  }
+
+  // Public endpoint for customer details - no authentication required
+  @Get('details/public/:userId')
+  async getPublicCustomerDetails(@Param('userId') userId: string) {
+    try {
+      const customerDetails =
+        await this.customerService.getCustomerDetails(userId);
+
+      if (!customerDetails) {
+        return {
+          success: false,
+          message: 'Customer not found',
+        };
+      }
+
+      return {
+        success: true,
+        data: customerDetails,
+        userId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error retrieving customer details',
+        error: error.message,
+      };
+    }
+  }
+
+  // Public endpoint for all customer details - no authentication required
+  @Get('details/public')
+  async getPublicAllCustomerDetails(@Query('tenantId') tenantId: string) {
+    try {
+      if (!tenantId) {
+        return {
+          success: false,
+          message: 'tenantId is required',
+        };
+      }
+
+      const customerDetails =
+        await this.customerService.getAllCustomerDetails(tenantId);
+
+      return {
+        success: true,
+        data: customerDetails,
+        count: customerDetails.length,
+        tenantId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error retrieving customer details',
         error: error.message,
       };
     }
