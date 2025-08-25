@@ -203,13 +203,21 @@ function NotificationList() {
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-gray-900">Notification List</h1>
             </div>
-            <button
-              onClick={() => navigate('/login')}
-              className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              <XMarkIcon className="h-4 w-4 mr-2" />
-              Logout
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/churn-management')}
+                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Churn Management
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <XMarkIcon className="h-4 w-4 mr-2" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
