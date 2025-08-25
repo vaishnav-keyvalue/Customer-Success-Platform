@@ -11,3 +11,4 @@ export class AddNotificationMetadata1756038789 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "notifications" DROP COLUMN "metadata"`);
     }
 }
+

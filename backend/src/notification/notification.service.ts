@@ -8,6 +8,8 @@ import { PaginationDto } from './dto/pagination.dto';
 import { PaginatedNotificationResponseDto, NotificationResponseDto } from './dto/notification-response.dto';
 import { WorkflowTriggerDto } from './dto/workflow-trigger.dto';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { CustomerService } from 'src/customer/customer.service';
 
 @Injectable()
 export class NotificationService {
@@ -15,6 +17,7 @@ export class NotificationService {
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     private readonly httpService: HttpService,
+    private readonly customerService: CustomerService,
   ) {}
 
   async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
@@ -130,6 +133,7 @@ export class NotificationService {
           workflowData,
           {
             headers: {
+              'Authorization': process.env.WORKFLOW_API_KEY,
               'Content-Type': 'application/json',
             },
           }
@@ -148,5 +152,28 @@ export class NotificationService {
         status: error.response?.status || 500,
       };
     }
+  }
+
+  async updateNotification(notificationId: string, updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
+    const notification = await this.notificationRepository.findOne({ where: { id: notificationId } });
+    return this.notificationRepository.save({
+      ...notification,
+      outcome: updateNotificationDto.outcome,
+      platform: updateNotificationDto.provider,
+    });
+  }
+
+  async getStatus(notificationId: string): Promise<string> {
+    const notification = await this.notificationRepository.findOne({ where: { id: notificationId } });
+
+    if (notification) {
+      const customer = await this.customerService.getCustomerDetails(notification.userId);
+      if (customer?.status !== 'at_risk') {
+        await this.updateNotification(notificationId, { outcome: 'Success', provider: 'Workflow', notificationId: notificationId });
+      }
+      return 'resolved';
+    }
+
+    return 'pending';
   }
 }

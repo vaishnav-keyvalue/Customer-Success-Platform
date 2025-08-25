@@ -21,7 +21,6 @@ import { JwtConfigModule } from 'src/config/jwt.module';
     EventService, 
     EventListenerService, 
     NotificationEventListenerService, 
-    EventEmitter2
   ],
   exports: [EventService],
 })

@@ -10,7 +10,8 @@ import { FeatureService } from '../feature/feature.service';
 import { NotificationService } from 'src/notification/notification.service';
 
 // ML Service interfaces
-interface MLScoreRequest {
+interface  MLScoreRequest {
+  userId: string;
   features: {
     activity_7d?: number;
     activity_30d?: number;
@@ -74,6 +75,7 @@ export class CustomerEventConsumer {
           const userFeatures = await this.featureService.computeUserFeaturesForUser(
             customerIdFromEvent,
             startDate,
+            new Date(startDate.getTime() - 30 * 24 * 60 * 60 * 1000),
             tenantId
           );
           
@@ -98,11 +100,15 @@ export class CustomerEventConsumer {
           try {
             const mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://localhost:8000');
             const mlRequest: MLScoreRequest = {
+              userId: customerIdFromEvent,
               features: {
                 activity_7d: userFeatures?.features?.activity_7d || 0,
                 activity_30d: userFeatures?.features?.activity_30d || 0,
                 usage_score: userFeatures?.features?.usage_score || 0,
-              
+                failed_renewals_30d: userFeatures?.features?.failed_renewals_30d || 0,
+                tickets_7d: userFeatures?.features?.tickets_7d || 0,
+                tickets_30d: userFeatures?.features?.tickets_30d || 0,
+                plan_value: userFeatures?.features?.plan_value || 0,
                 region: customerDetails.region, // default region, can be enhanced to get from customer data
               }
             };
@@ -133,7 +139,7 @@ export class CustomerEventConsumer {
 
           const notification = await this.notificationService.create({
             name: payload.event.name,
-            platform: 'email',
+            platform: 'Workflow',
             outcome: 'In Progress',
             userId: customerIdFromEvent,
             // Add ML service results to notification metadata if available
@@ -147,12 +153,12 @@ export class CustomerEventConsumer {
           });
 
 
-          await this.notificationService.triggerWorkflow({
-            worflowName: 'Customer_Retention',
+          const response = await this.notificationService.triggerWorkflow({
+            workflowName: 'Customer_Retention',
             data: {
               userId: customerIdFromEvent,
               userName: customerDetails.email,
-              tenant: tenantId,
+              tenant: "Sample Tenant",
               notificationId: notification.id,
               mlTier: customerTier,
               mlRiskScore: mlRiskScore,
@@ -163,6 +169,7 @@ export class CustomerEventConsumer {
               sms: customerDetails.phone,
             },
           });
+          this.logger.log(`Workflow response: ${response}`);
         }
         
           // Send notification to the customer

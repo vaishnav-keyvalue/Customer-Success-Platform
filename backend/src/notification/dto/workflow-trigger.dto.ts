@@ -2,7 +2,7 @@ import { IsString, IsEmail, IsOptional } from 'class-validator';
 
 export class WorkflowTriggerDto {
   @IsString()
-  worflowName: string;
+  workflowName: string;
 
   @IsOptional()
   data?: {

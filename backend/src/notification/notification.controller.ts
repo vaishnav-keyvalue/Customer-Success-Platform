@@ -5,6 +5,7 @@ import { PaginationDto } from './dto/pagination.dto';
 import { PaginatedNotificationResponseDto } from './dto/notification-response.dto';
 import { WorkflowTriggerDto } from './dto/workflow-trigger.dto';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
 
 @Controller('notifications')
 export class NotificationController {
@@ -13,6 +14,17 @@ export class NotificationController {
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto): Promise<Notification> {
     return this.notificationService.create(createNotificationDto);
+  }
+
+
+  @Post('/update')
+  async update(@Body() updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
+    return this.notificationService.updateNotification(updateNotificationDto.notificationId, updateNotificationDto);
+  }
+
+  @Post('/status')
+  async getStatus(@Body() updateNotificationDto: UpdateNotificationDto): Promise<string> {
+    return this.notificationService.getStatus(updateNotificationDto.notificationId);
   }
 
   @Get()

@@ -62,7 +62,7 @@ export class EventService {
     const savedEvent = await this.eventRepository.save(event);
     
     // Emit event after successful save
-    this.eventEmitter.emit('event.created', {
+    await this.eventEmitter.emit('event.created', {
       event: savedEvent,
       customer,
       timestamp: new Date(),
